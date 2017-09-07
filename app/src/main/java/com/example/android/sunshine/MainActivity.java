@@ -55,9 +55,7 @@ public class MainActivity extends AppCompatActivity implements
 
     private final String TAG = MainActivity.class.getSimpleName();
 
-    GoogleApiClient mGoogleApiClient;
-    private static final String DATA_KEY = "sunshine_data";
-    private int count = 41;
+    public static GoogleApiClient mGoogleApiClient;
 
     /*
      * The columns of data that we are interested in displaying within our MainActivity's list of
@@ -110,12 +108,6 @@ public class MainActivity extends AppCompatActivity implements
                 .build();
 
         mGoogleApiClient.connect();
-
-        PutDataMapRequest putDataMapReq = PutDataMapRequest.create("/count");
-        putDataMapReq.getDataMap().putInt(DATA_KEY, count++);
-        PutDataRequest putDataReq = putDataMapReq.asPutDataRequest().setUrgent();
-        PendingResult<DataApi.DataItemResult> pendingResult =
-                Wearable.DataApi.putDataItem(mGoogleApiClient, putDataReq);
 
         /*
          * Using findViewById, we get a reference to our RecyclerView from xml. This allows us to

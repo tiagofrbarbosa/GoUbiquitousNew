@@ -18,17 +18,42 @@ package com.example.android.sunshine.sync;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
+import android.database.Cursor;
+import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.text.format.DateUtils;
+import android.util.Log;
+import android.widget.Toast;
 
+import com.example.android.sunshine.MainActivity;
 import com.example.android.sunshine.data.SunshinePreferences;
 import com.example.android.sunshine.data.WeatherContract;
 import com.example.android.sunshine.utilities.NetworkUtils;
 import com.example.android.sunshine.utilities.NotificationUtils;
 import com.example.android.sunshine.utilities.OpenWeatherJsonUtils;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataEventBuffer;
+import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.PutDataRequest;
+import com.google.android.gms.wearable.Wearable;
 
 import java.net.URL;
 
-public class SunshineSyncTask {
+public class SunshineSyncTask{
+
+    private static final String DATA_KEY = "sunshine_data";
+    private static int count = 60;
+
+    public static void sendDataFromWatch(String min){
+        PutDataMapRequest putDataMapReq = PutDataMapRequest.create("/count");
+        putDataMapReq.getDataMap().putString(DATA_KEY, min);
+        PutDataRequest putDataReq = putDataMapReq.asPutDataRequest().setUrgent();
+        PendingResult<DataApi.DataItemResult> pendingResult = Wearable.DataApi.putDataItem(MainActivity.mGoogleApiClient, putDataReq);
+    }
 
     /**
      * Performs the network request for updated weather, parses the JSON from that request, and
@@ -38,7 +63,7 @@ public class SunshineSyncTask {
      *
      * @param context Used to access utility methods and the ContentResolver
      */
-    synchronized public static void syncWeather(Context context) {
+    synchronized public static void syncWeather(Context context){
 
         try {
             /*
@@ -75,6 +100,26 @@ public class SunshineSyncTask {
                 sunshineContentResolver.bulkInsert(
                         WeatherContract.WeatherEntry.CONTENT_URI,
                         weatherValues);
+
+                Cursor mWatchCursor = sunshineContentResolver.query(
+                        WeatherContract.WeatherEntry.CONTENT_URI,
+                        null,
+                        null,
+                        null,
+                        null
+                );
+
+                mWatchCursor.moveToFirst();
+
+                //for(int i=0;i<mWatchCursor.getCount();i++)
+                  //  Log.i("cursorData", mWatchCursor.getColumnName(i));
+
+                String WeatherMin = mWatchCursor.getString(3);
+
+                Log.i("cursorData", WeatherMin);
+                Log.i("cursorData", mWatchCursor.getString(4));
+
+                sendDataFromWatch(WeatherMin);
 
                 /*
                  * Finally, after we insert data into the ContentProvider, determine whether or not

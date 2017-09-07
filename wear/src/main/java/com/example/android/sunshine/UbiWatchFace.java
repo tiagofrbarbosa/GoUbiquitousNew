@@ -360,7 +360,7 @@ public class UbiWatchFace extends CanvasWatchFaceService {
                     DataItem item = event.getDataItem();
                     if (item.getUri().getPath().compareTo("/count") == 0) {
                         DataMap dataMap = DataMapItem.fromDataItem(item).getDataMap();
-                        updateWatch(dataMap.getInt(DATA_KEY));
+                        updateWatch(dataMap.getString(DATA_KEY));
                     }
                 } else if (event.getType() == DataEvent.TYPE_DELETED) {
                     // DataItem deleted
@@ -368,7 +368,7 @@ public class UbiWatchFace extends CanvasWatchFaceService {
             }
         }
 
-        private void updateWatch(int d){
+        private void updateWatch(String d){
             Toast.makeText(getApplicationContext(),String.valueOf(d),Toast.LENGTH_LONG).show();
             Log.i("myWatch", String.valueOf(d));
             weatherMinValue = String.valueOf(d);
