@@ -45,12 +45,14 @@ import java.net.URL;
 
 public class SunshineSyncTask{
 
-    private static final String DATA_KEY = "sunshine_data";
+    private static final String MIN_KEY = "sunshine_data_min";
+    private static final String MAX_KEY = "sunshine_data_max";
     private static int count = 60;
 
-    public static void sendDataFromWatch(String min){
+    public static void sendDataFromWatch(String min, String max){
         PutDataMapRequest putDataMapReq = PutDataMapRequest.create("/count");
-        putDataMapReq.getDataMap().putString(DATA_KEY, min);
+        putDataMapReq.getDataMap().putString(MIN_KEY, min);
+        putDataMapReq.getDataMap().putString(MAX_KEY, max);
         PutDataRequest putDataReq = putDataMapReq.asPutDataRequest().setUrgent();
         PendingResult<DataApi.DataItemResult> pendingResult = Wearable.DataApi.putDataItem(MainActivity.mGoogleApiClient, putDataReq);
     }
@@ -115,11 +117,12 @@ public class SunshineSyncTask{
                   //  Log.i("cursorData", mWatchCursor.getColumnName(i));
 
                 String WeatherMin = mWatchCursor.getString(3);
+                String WeatherMax = mWatchCursor.getString(4);
 
                 Log.i("cursorData", WeatherMin);
-                Log.i("cursorData", mWatchCursor.getString(4));
+                Log.i("cursorData", WeatherMax);
 
-                sendDataFromWatch(WeatherMin);
+                sendDataFromWatch(WeatherMin, WeatherMax);
 
                 /*
                  * Finally, after we insert data into the ContentProvider, determine whether or not

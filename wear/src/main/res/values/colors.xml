@@ -2,4 +2,6 @@
 <resources>
     <color name="background">#000000</color>
     <color name="digital_text">#ffffff</color>
+    <color name="digital_text_min">#719f9f</color>
+    <color name="digital_text_max">#ed8b22</color>
 </resources>

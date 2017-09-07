@@ -12,4 +12,5 @@
     <dimen name="digital_y_offset_time">70dp</dimen>
     <dimen name="digital_y_offset_date">85dp</dimen>
     <dimen name="digital_y_offset_weather_min">100dp</dimen>
+    <dimen name="digital_x_offset_weather_max">50dp</dimen>
 </resources>

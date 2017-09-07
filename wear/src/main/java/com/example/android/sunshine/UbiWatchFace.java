@@ -85,13 +85,16 @@ public class UbiWatchFace extends CanvasWatchFaceService {
             GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener{
 
         final Handler mUpdateTimeHandler = new EngineHandler(this);
-        private static final String DATA_KEY = "sunshine_data";
+        private static final String MIN_KEY = "sunshine_data_min";
+        private static final String MAX_KEY = "sunshine_data_max";
         String weatherMinValue = "null";
+        String weatherMaxValue = "null";
         boolean mRegisteredTimeZoneReceiver = false;
         Paint mBackgroundPaint;
         Paint mTimePaint;
         Paint mDatePaint;
         Paint mWeatherMin;
+        Paint mWeatherMax;
         boolean mAmbient;
         Calendar mCalendar;
 
@@ -112,6 +115,7 @@ public class UbiWatchFace extends CanvasWatchFaceService {
         float mYOffsetTime;
         float mYOffsetDate;
         float mYOffsetWeatherMin;
+        float mXOffsetWeatherMax;
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -133,7 +137,7 @@ public class UbiWatchFace extends CanvasWatchFaceService {
             mYOffsetTime = resources.getDimension(R.dimen.digital_y_offset_time);
             mYOffsetDate = resources.getDimension(R.dimen.digital_y_offset_date);
             mYOffsetWeatherMin = resources.getDimension(R.dimen.digital_y_offset_weather_min);
-
+            mXOffsetWeatherMax = resources.getDimension(R.dimen.digital_x_offset_weather_max);
 
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(resources.getColor(R.color.background));
@@ -145,7 +149,10 @@ public class UbiWatchFace extends CanvasWatchFaceService {
             mDatePaint = createTextPaint(resources.getColor(R.color.digital_text));
 
             mWeatherMin = new Paint();
-            mWeatherMin = createTextPaint(resources.getColor(R.color.digital_text));
+            mWeatherMin = createTextPaint(resources.getColor(R.color.digital_text_min));
+
+            mWeatherMax = new Paint();
+            mWeatherMax = createTextPaint(resources.getColor(R.color.digital_text_max));
 
             mCalendar = Calendar.getInstance();
         }
@@ -223,6 +230,7 @@ public class UbiWatchFace extends CanvasWatchFaceService {
             mTimePaint.setTextSize(timeSize);
             mDatePaint.setTextSize(dateSize);
             mWeatherMin.setTextSize(weatherSize);
+            mWeatherMax.setTextSize(weatherSize);
         }
 
         @Override
@@ -302,6 +310,7 @@ public class UbiWatchFace extends CanvasWatchFaceService {
             canvas.drawText(text, mXOffset, mYOffsetTime, mTimePaint);
             canvas.drawText(date, mXOffset, mYOffsetDate, mDatePaint);
             canvas.drawText(weatherMinValue, mXOffset, mYOffsetWeatherMin, mWeatherMin);
+            canvas.drawText(weatherMaxValue, mXOffsetWeatherMax, mYOffsetWeatherMin, mWeatherMax);
         }
 
         /**
@@ -360,7 +369,7 @@ public class UbiWatchFace extends CanvasWatchFaceService {
                     DataItem item = event.getDataItem();
                     if (item.getUri().getPath().compareTo("/count") == 0) {
                         DataMap dataMap = DataMapItem.fromDataItem(item).getDataMap();
-                        updateWatch(dataMap.getString(DATA_KEY));
+                        updateWatch(dataMap.getString(MIN_KEY), dataMap.getString(MAX_KEY));
                     }
                 } else if (event.getType() == DataEvent.TYPE_DELETED) {
                     // DataItem deleted
@@ -368,10 +377,11 @@ public class UbiWatchFace extends CanvasWatchFaceService {
             }
         }
 
-        private void updateWatch(String d){
-            Toast.makeText(getApplicationContext(),String.valueOf(d),Toast.LENGTH_LONG).show();
-            Log.i("myWatch", String.valueOf(d));
-            weatherMinValue = String.valueOf(d);
+        private void updateWatch(String min, String max){
+            Log.i("myWatch", String.valueOf(min));
+            Log.i("myWatch", String.valueOf(max));
+            weatherMinValue = min.substring(0,2).concat("°");
+            weatherMaxValue = max.substring(0,2).concat("°");
             invalidate();
         }
     }
