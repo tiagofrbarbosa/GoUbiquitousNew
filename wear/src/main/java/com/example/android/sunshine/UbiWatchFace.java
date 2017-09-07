@@ -13,11 +13,24 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
+import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 import android.widget.Toast;
+
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataEvent;
+import com.google.android.gms.wearable.DataEventBuffer;
+import com.google.android.gms.wearable.DataItem;
+import com.google.android.gms.wearable.DataMap;
+import com.google.android.gms.wearable.DataMapItem;
+import com.google.android.gms.wearable.Wearable;
 
 import java.lang.ref.WeakReference;
 import java.util.Calendar;
@@ -68,8 +81,12 @@ public class UbiWatchFace extends CanvasWatchFaceService {
         }
     }
 
-    private class Engine extends CanvasWatchFaceService.Engine {
+    private class Engine extends CanvasWatchFaceService.Engine implements DataApi.DataListener,
+            GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener{
+
         final Handler mUpdateTimeHandler = new EngineHandler(this);
+        private static final String DATA_KEY = "sunshine_data";
+        String weatherMinValue = "null";
         boolean mRegisteredTimeZoneReceiver = false;
         Paint mBackgroundPaint;
         Paint mTimePaint;
@@ -77,6 +94,13 @@ public class UbiWatchFace extends CanvasWatchFaceService {
         Paint mWeatherMin;
         boolean mAmbient;
         Calendar mCalendar;
+
+        GoogleApiClient mGoogleApiClient = new GoogleApiClient.Builder(UbiWatchFace.this)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .addApi(Wearable.API)
+                .build();
+
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -145,6 +169,7 @@ public class UbiWatchFace extends CanvasWatchFaceService {
             super.onVisibilityChanged(visible);
 
             if (visible) {
+                mGoogleApiClient.connect();
                 registerReceiver();
 
                 // Update time zone in case it changed while we weren't visible.
@@ -152,6 +177,11 @@ public class UbiWatchFace extends CanvasWatchFaceService {
                 invalidate();
             } else {
                 unregisterReceiver();
+
+                if(mGoogleApiClient != null && mGoogleApiClient.isConnected()){
+                    Wearable.DataApi.removeListener(mGoogleApiClient, this);
+                    mGoogleApiClient.disconnect();
+                }
             }
 
             // Whether the timer should be running depends on whether we're visible (as well as
@@ -269,8 +299,6 @@ public class UbiWatchFace extends CanvasWatchFaceService {
                     mCalendar.get(Calendar.MONTH),
                     mCalendar.get(Calendar.YEAR));
 
-            String weatherMinValue = "10";
-
             canvas.drawText(text, mXOffset, mYOffsetTime, mTimePaint);
             canvas.drawText(date, mXOffset, mYOffsetDate, mDatePaint);
             canvas.drawText(weatherMinValue, mXOffset, mYOffsetWeatherMin, mWeatherMin);
@@ -306,6 +334,45 @@ public class UbiWatchFace extends CanvasWatchFaceService {
                         - (timeMs % INTERACTIVE_UPDATE_RATE_MS);
                 mUpdateTimeHandler.sendEmptyMessageDelayed(MSG_UPDATE_TIME, delayMs);
             }
+        }
+
+        @Override
+        public void onConnected(@Nullable Bundle bundle) {
+                Wearable.DataApi.addListener(mGoogleApiClient, Engine.this);
+                Toast.makeText(getApplicationContext(), "conectado", Toast.LENGTH_LONG).show();
+        }
+
+        @Override
+        public void onConnectionSuspended(int i) {
+
+        }
+
+        @Override
+        public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+
+        }
+
+        @Override
+        public void onDataChanged(DataEventBuffer dataEvents) {
+            for (DataEvent event : dataEvents) {
+                if (event.getType() == DataEvent.TYPE_CHANGED) {
+                    // DataItem changed
+                    DataItem item = event.getDataItem();
+                    if (item.getUri().getPath().compareTo("/count") == 0) {
+                        DataMap dataMap = DataMapItem.fromDataItem(item).getDataMap();
+                        updateWatch(dataMap.getInt(DATA_KEY));
+                    }
+                } else if (event.getType() == DataEvent.TYPE_DELETED) {
+                    // DataItem deleted
+                }
+            }
+        }
+
+        private void updateWatch(int d){
+            Toast.makeText(getApplicationContext(),String.valueOf(d),Toast.LENGTH_LONG).show();
+            Log.i("myWatch", String.valueOf(d));
+            weatherMinValue = String.valueOf(d);
+            invalidate();
         }
     }
 }
