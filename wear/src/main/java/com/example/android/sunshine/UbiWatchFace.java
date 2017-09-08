@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -50,6 +52,7 @@ public class UbiWatchFace extends CanvasWatchFaceService {
      * displayed in interactive mode.
      */
     private static final long INTERACTIVE_UPDATE_RATE_MS = TimeUnit.SECONDS.toMillis(1);
+    private static final long TIMEOUT_MS = 100;
 
     /**
      * Handler message id for updating the time periodically in interactive mode.
@@ -82,19 +85,23 @@ public class UbiWatchFace extends CanvasWatchFaceService {
     }
 
     private class Engine extends CanvasWatchFaceService.Engine implements DataApi.DataListener,
-            GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener{
+            GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
         final Handler mUpdateTimeHandler = new EngineHandler(this);
         private static final String MIN_KEY = "sunshine_data_min";
         private static final String MAX_KEY = "sunshine_data_max";
-        String weatherMinValue = "null";
-        String weatherMaxValue = "null";
+        private static final String WEATHER_KEY = "sunshine_data_weather";
+        private static final String DATA_PATH = "/weather_data_item";
+        String weatherMinValue = "0";
+        String weatherMaxValue = "0";
+        Bitmap mWeatherIconBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.ic_cloudy);
         boolean mRegisteredTimeZoneReceiver = false;
         Paint mBackgroundPaint;
         Paint mTimePaint;
         Paint mDatePaint;
         Paint mWeatherMin;
         Paint mWeatherMax;
+        Paint mWeatherIcon;
         boolean mAmbient;
         Calendar mCalendar;
 
@@ -116,6 +123,8 @@ public class UbiWatchFace extends CanvasWatchFaceService {
         float mYOffsetDate;
         float mYOffsetWeatherMin;
         float mXOffsetWeatherMax;
+        float mXOffsetWeatherIcon;
+        float mYOffsetWeatherIcon;
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -138,6 +147,8 @@ public class UbiWatchFace extends CanvasWatchFaceService {
             mYOffsetDate = resources.getDimension(R.dimen.digital_y_offset_date);
             mYOffsetWeatherMin = resources.getDimension(R.dimen.digital_y_offset_weather_min);
             mXOffsetWeatherMax = resources.getDimension(R.dimen.digital_x_offset_weather_max);
+            mXOffsetWeatherIcon = resources.getDimension(R.dimen.digital_x_offset_weather_icon);
+            mYOffsetWeatherIcon = resources.getDimension(R.dimen.digital_y_offset_weather_icon);
 
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(resources.getColor(R.color.background));
@@ -153,6 +164,8 @@ public class UbiWatchFace extends CanvasWatchFaceService {
 
             mWeatherMax = new Paint();
             mWeatherMax = createTextPaint(resources.getColor(R.color.digital_text_max));
+
+            mWeatherIcon = new Paint();
 
             mCalendar = Calendar.getInstance();
         }
@@ -185,7 +198,7 @@ public class UbiWatchFace extends CanvasWatchFaceService {
             } else {
                 unregisterReceiver();
 
-                if(mGoogleApiClient != null && mGoogleApiClient.isConnected()){
+                if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
                     Wearable.DataApi.removeListener(mGoogleApiClient, this);
                     mGoogleApiClient.disconnect();
                 }
@@ -311,6 +324,7 @@ public class UbiWatchFace extends CanvasWatchFaceService {
             canvas.drawText(date, mXOffset, mYOffsetDate, mDatePaint);
             canvas.drawText(weatherMinValue, mXOffset, mYOffsetWeatherMin, mWeatherMin);
             canvas.drawText(weatherMaxValue, mXOffsetWeatherMax, mYOffsetWeatherMin, mWeatherMax);
+            canvas.drawBitmap(mWeatherIconBitmap,mXOffsetWeatherIcon,mYOffsetWeatherIcon,mWeatherIcon);
         }
 
         /**
@@ -347,8 +361,7 @@ public class UbiWatchFace extends CanvasWatchFaceService {
 
         @Override
         public void onConnected(@Nullable Bundle bundle) {
-                Wearable.DataApi.addListener(mGoogleApiClient, Engine.this);
-                Toast.makeText(getApplicationContext(), "conectado", Toast.LENGTH_LONG).show();
+            Wearable.DataApi.addListener(mGoogleApiClient, Engine.this);
         }
 
         @Override
@@ -358,7 +371,6 @@ public class UbiWatchFace extends CanvasWatchFaceService {
 
         @Override
         public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-
         }
 
         @Override
@@ -367,9 +379,9 @@ public class UbiWatchFace extends CanvasWatchFaceService {
                 if (event.getType() == DataEvent.TYPE_CHANGED) {
                     // DataItem changed
                     DataItem item = event.getDataItem();
-                    if (item.getUri().getPath().compareTo("/count") == 0) {
+                    if (item.getUri().getPath().compareTo(DATA_PATH) == 0) {
                         DataMap dataMap = DataMapItem.fromDataItem(item).getDataMap();
-                        updateWatch(dataMap.getString(MIN_KEY), dataMap.getString(MAX_KEY));
+                        updateWatch(dataMap.getString(MIN_KEY), dataMap.getString(MAX_KEY), dataMap.getInt(WEATHER_KEY));
                     }
                 } else if (event.getType() == DataEvent.TYPE_DELETED) {
                     // DataItem deleted
@@ -377,12 +389,53 @@ public class UbiWatchFace extends CanvasWatchFaceService {
             }
         }
 
-        private void updateWatch(String min, String max){
+        private void updateWatch(String min, String max, int weatherId) {
             Log.i("myWatch", String.valueOf(min));
             Log.i("myWatch", String.valueOf(max));
-            weatherMinValue = min.substring(0,2).concat("°");
-            weatherMaxValue = max.substring(0,2).concat("°");
+            Log.i("myWatch", String.valueOf(weatherId));
+            weatherMinValue = min.substring(0, 2).concat("°");
+            weatherMaxValue = max.substring(0, 2).concat("°");
+            mWeatherIconBitmap = BitmapFactory.decodeResource(getResources(), getSmallArtResourceIdForWeatherCondition(weatherId));
             invalidate();
+        }
+
+        public int getSmallArtResourceIdForWeatherCondition(int weatherId) {
+
+        /*
+         * Based on weather code data for Open Weather Map.
+         */
+            if (weatherId >= 200 && weatherId <= 232) {
+                return R.drawable.ic_storm;
+            } else if (weatherId >= 300 && weatherId <= 321) {
+                return R.drawable.ic_light_rain;
+            } else if (weatherId >= 500 && weatherId <= 504) {
+                return R.drawable.ic_rain;
+            } else if (weatherId == 511) {
+                return R.drawable.ic_snow;
+            } else if (weatherId >= 520 && weatherId <= 531) {
+                return R.drawable.ic_rain;
+            } else if (weatherId >= 600 && weatherId <= 622) {
+                return R.drawable.ic_snow;
+            } else if (weatherId >= 701 && weatherId <= 761) {
+                return R.drawable.ic_fog;
+            } else if (weatherId == 761 || weatherId == 771 || weatherId == 781) {
+                return R.drawable.ic_storm;
+            } else if (weatherId == 800) {
+                return R.drawable.ic_clear;
+            } else if (weatherId == 801) {
+                return R.drawable.ic_light_clouds;
+            } else if (weatherId >= 802 && weatherId <= 804) {
+                return R.drawable.ic_cloudy;
+            } else if (weatherId >= 900 && weatherId <= 906) {
+                return R.drawable.ic_storm;
+            } else if (weatherId >= 958 && weatherId <= 962) {
+                return R.drawable.ic_storm;
+            } else if (weatherId >= 951 && weatherId <= 957) {
+                return R.drawable.ic_clear;
+            }
+
+            Log.e("UNKNOWN", "Unknown Weather: " + weatherId);
+            return R.drawable.ic_storm;
         }
     }
 }

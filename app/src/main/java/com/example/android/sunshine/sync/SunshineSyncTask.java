@@ -19,12 +19,7 @@ import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
-import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.text.format.DateUtils;
-import android.util.Log;
-import android.widget.Toast;
 
 import com.example.android.sunshine.MainActivity;
 import com.example.android.sunshine.data.SunshinePreferences;
@@ -32,11 +27,8 @@ import com.example.android.sunshine.data.WeatherContract;
 import com.example.android.sunshine.utilities.NetworkUtils;
 import com.example.android.sunshine.utilities.NotificationUtils;
 import com.example.android.sunshine.utilities.OpenWeatherJsonUtils;
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.wearable.DataApi;
-import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
@@ -47,12 +39,14 @@ public class SunshineSyncTask{
 
     private static final String MIN_KEY = "sunshine_data_min";
     private static final String MAX_KEY = "sunshine_data_max";
-    private static int count = 60;
+    private static final String WEATHER_KEY = "sunshine_data_weather";
+    private static final String DATA_PATH = "/weather_data_item";
 
-    public static void sendDataFromWatch(String min, String max){
-        PutDataMapRequest putDataMapReq = PutDataMapRequest.create("/count");
+    public static void sendDataFromWatch(String min, String max, int weatherId){
+        PutDataMapRequest putDataMapReq = PutDataMapRequest.create(DATA_PATH);
         putDataMapReq.getDataMap().putString(MIN_KEY, min);
         putDataMapReq.getDataMap().putString(MAX_KEY, max);
+        putDataMapReq.getDataMap().putInt(WEATHER_KEY, weatherId);
         PutDataRequest putDataReq = putDataMapReq.asPutDataRequest().setUrgent();
         PendingResult<DataApi.DataItemResult> pendingResult = Wearable.DataApi.putDataItem(MainActivity.mGoogleApiClient, putDataReq);
     }
@@ -113,16 +107,11 @@ public class SunshineSyncTask{
 
                 mWatchCursor.moveToFirst();
 
-                //for(int i=0;i<mWatchCursor.getCount();i++)
-                  //  Log.i("cursorData", mWatchCursor.getColumnName(i));
-
+                int weatherId = mWatchCursor.getInt(2);
                 String WeatherMin = mWatchCursor.getString(3);
                 String WeatherMax = mWatchCursor.getString(4);
 
-                Log.i("cursorData", WeatherMin);
-                Log.i("cursorData", WeatherMax);
-
-                sendDataFromWatch(WeatherMin, WeatherMax);
+                sendDataFromWatch(WeatherMin, WeatherMax, weatherId);
 
                 /*
                  * Finally, after we insert data into the ContentProvider, determine whether or not
